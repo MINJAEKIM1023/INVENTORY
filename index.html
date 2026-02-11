@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="ko">
 <head>
@@ -7,285 +6,330 @@
   <title>일일 재고 현황표</title>
   <style>
     :root{
-      --block-w: 140px;     /* 블록(네모) 가로 */
-      --block-h: 150px;     /* 블록(네모) 세로 */
-      --node-d: 96px;       /* 원 지름 */
-      --stroke: 2px;
-      --pad: 40px;
+      --pad: 28px;
+      --gap-x: 165px;   /* 원 중심 간 가로 간격 */
+      --gap-y: 175px;   /* 원 중심 간 세로 간격 */
+      --r: 52px;        /* 원 반지름 */
+      --stroke: 3px;
+      --line: 3px;
       --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", Arial;
     }
     body{font-family:var(--font); margin:0; background:#fff; color:#111;}
     header{padding:18px 18px 8px; text-align:center;}
     header h1{margin:0; font-size:28px; letter-spacing:6px;}
-    .wrap{max-width:1100px; margin:0 auto; padding:12px 18px 28px;}
+
+    .wrap{max-width:1150px; margin:0 auto; padding:12px 18px 30px;}
     .panel{
-      display:grid;
-      grid-template-columns: 1fr;
-      gap:12px;
-      margin-bottom:14px;
+      border:1px solid #ddd; border-radius:12px; background:#fafafa;
+      padding:14px; margin-bottom:16px;
     }
-    .controls{
-      border:1px solid #ddd; border-radius:10px; padding:12px;
-      background:#fafafa;
-    }
-    .controls .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px;}
-    label{font-size:13px; color:#333;}
-    input[type="number"]{width:90px; padding:6px 8px; border:1px solid #ccc; border-radius:8px;}
+    .panel h3{margin:0 0 10px; font-size:14px; color:#333;}
     textarea{
-      width:100%; min-height:140px; resize:vertical;
+      width:100%; min-height:120px; resize:vertical;
       padding:10px; border:1px solid #ccc; border-radius:10px;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      font-size:12px; line-height:1.4;
+      font-size:12px; line-height:1.35;
+      box-sizing:border-box;
     }
     button{
-      padding:8px 10px; border:1px solid #ccc; border-radius:10px;
+      padding:9px 12px; border:1px solid #ccc; border-radius:10px;
       background:#fff; cursor:pointer;
     }
     button:hover{background:#f3f3f3;}
-    .hint{font-size:12px; color:#555; margin:6px 0 0;}
-    .stage{
-      position:relative;
-      border:0;
-      overflow:auto;
-      padding:8px 0 0;
-    }
-    /* 도면 캔버스 */
+    .hint{font-size:12px; color:#666; margin-top:8px; line-height:1.35;}
+
+    /* 도면 */
+    .stage{overflow:auto;}
     #canvas{
       position:relative;
-      margin: 0 auto;
-      background:#fff;
+      width:max-content;
+      margin:0 auto;
+      padding: 6px 0;
     }
-    /* 블록(네모) */
-    .block{
+    .frame{
       position:absolute;
+      border: var(--stroke) solid #222;
+      border-radius: 2px;
       box-sizing:border-box;
-      border: var(--stroke) solid #777;
-      background:transparent;
+      background: transparent;
     }
-    /* 원(노드) */
+    .hline, .vline{
+      position:absolute;
+      background:#222;
+    }
+
     .node{
       position:absolute;
-      width: var(--node-d);
-      height: var(--node-d);
+      width: calc(var(--r) * 2);
+      height: calc(var(--r) * 2);
       border-radius:50%;
-      border: var(--stroke) solid #777;
+      border: var(--stroke) solid #555;
       background:#fff;
+      box-sizing:border-box;
       display:flex;
       flex-direction:column;
       align-items:center;
       justify-content:center;
       text-align:center;
-      line-height:1.1;
-      box-sizing:border-box;
+      line-height:1.08;
       user-select:none;
     }
-    .node .l1{font-weight:800; font-size:15px; color:#1a47ff;}
-    .node .l2{font-weight:800; font-size:16px; color:#111; margin-top:4px;}
-    .node .l3{font-weight:700; font-size:12px; color:#4da63a; margin-top:4px;}
-    .node[data-empty="1"]{background: linear-gradient(#f9d9e8,#ffffff);}
+    .node .l1{font-weight:900; font-size:14px; color:#1a47ff;}
+    .node .l2{font-weight:900; font-size:15px; color:#111; margin-top:4px;}
+    .node .l3{font-weight:800; font-size:12px; color:#4da63a; margin-top:4px;}
+
+    /* 중간 슬롯(원 아닌 텍스트 칸) */
+    .slot{
+      position:absolute;
+      width: 90px;
+      height: 56px;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      align-items:center;
+      text-align:center;
+      line-height:1.05;
+      user-select:none;
+    }
+    .slot .s1{font-weight:900; font-size:13px; color:#d25a00;}
+    .slot .s2{font-weight:900; font-size:14px; color:#111; margin-top:3px;}
+    .slot .s3{font-weight:800; font-size:12px; color:#777; margin-top:3px;}
+
     .footer-note{font-size:12px; color:#666; margin-top:10px;}
   </style>
 </head>
+
 <body>
-  <header>
-    <h1>일 일 재 고 현 황 표</h1>
-  </header>
+<header>
+  <h1>일 일 재 고 현 황 표</h1>
+</header>
 
-  <div class="wrap">
-    <div class="panel">
-      <div class="controls">
-        <div class="row">
-          <label>가로 블록 수</label>
-          <input id="blocksX" type="number" min="1" value="5" />
-          <label>세로 블록 수</label>
-          <input id="blocksY" type="number" min="1" value="2" />
-          <button id="btnRebuild">도면 재생성</button>
-          <button id="btnFillDemo">데모 채우기</button>
-          <button id="btnClear">초기화</button>
-        </div>
-
-        <label>엑셀에서 복사한 TSV를 붙여넣기 (node_id, line1, line2, line3)</label>
-        <textarea id="paste" placeholder="예)
-node_id	line1	line2	line3
-N00	WASW	1508	A101
-N01	WCRS	1671	A102"></textarea>
-        <div class="hint">
-          - node_id는 도면이 자동으로 만든 ID(N00, N01, ...)입니다. (데모 채우기 버튼으로 확인)<br/>
-          - 붙여넣으면 즉시 반영됩니다. (엑셀 표를 그대로 복사하면 탭/줄바꿈 TSV로 들어옵니다)
-        </div>
-      </div>
+<div class="wrap">
+  <div class="panel">
+    <h3>데이터 입력 (엑셀 복사/붙여넣기)</h3>
+    <textarea id="paste" placeholder="엑셀에서 아래 3열(장치장, 곡종, 재고량)을 그대로 복사해서 붙여넣으세요.
+예)
+장치장	곡종	재고량
+A101	WUR	1600
+A102	WCRS	1700.557
+..."></textarea>
+    <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+      <button id="btnApply">현황표 업데이트</button>
+      <button id="btnClear">초기화</button>
     </div>
-
-    <div class="stage">
-      <div id="canvas"></div>
-    </div>
-
-    <div class="footer-note">
-      ✅ 보안 포인트: 엑셀 파일 업로드 없이 “복사/붙여넣기”만 사용. 데이터는 브라우저 메모리에서만 처리됩니다.
+    <div class="hint">
+      - A101~A106: 상단 원 / A301~A306: 중단 원 / A501~A506: 하단 원<br/>
+      - A201~A207: 위쪽 중간칸(원 사이) / A401~A407: 아래쪽 중간칸(원 사이)
     </div>
   </div>
 
-<script>
-  // ====== 레이아웃 파라미터 ======
-  const css = getComputedStyle(document.documentElement);
-  const BLOCK_W = parseInt(css.getPropertyValue('--block-w'));
-  const BLOCK_H = parseInt(css.getPropertyValue('--block-h'));
-  const NODE_D  = parseInt(css.getPropertyValue('--node-d'));
-  const PAD     = parseInt(css.getPropertyValue('--pad'));
+  <div class="stage">
+    <div id="canvas"></div>
+  </div>
 
+  <div class="footer-note">
+    ✅ 레이아웃(모양)은 정답 이미지처럼 고정. 데이터만 붙여넣으면 자동 반영됩니다.
+  </div>
+</div>
+
+<script>
   const canvas = document.getElementById('canvas');
   const ta = document.getElementById('paste');
-  const blocksXEl = document.getElementById('blocksX');
-  const blocksYEl = document.getElementById('blocksY');
 
-  // node 데이터 저장: { "N00": {l1,l2,l3, emptyFlag}, ...}
-  let nodeData = {};
+  const css = getComputedStyle(document.documentElement);
+  const PAD = parseFloat(css.getPropertyValue('--pad'));
+  const GAPX = parseFloat(css.getPropertyValue('--gap-x'));
+  const GAPY = parseFloat(css.getPropertyValue('--gap-y'));
+  const R = parseFloat(css.getPropertyValue('--r'));
+  const LINE = parseFloat(css.getPropertyValue('--line'));
 
-  function nodeId(i){ return "N" + String(i).padStart(2,"0"); }
+  // 6열 x 3행 원(18개)
+  const COLS = 6;
+  const ROWS = 3;
 
-  // ====== 도면 생성 ======
-  function rebuild(){
-    const blocksX = Math.max(1, parseInt(blocksXEl.value || "5"));
-    const blocksY = Math.max(1, parseInt(blocksYEl.value || "2"));
+  // 원 중심 좌표
+  function centerX(c){ return PAD + R + c * GAPX; }
+  function centerY(r){ return PAD + R + r * GAPY; }
 
-    // 노드 수 = (blocksX+1) * (blocksY+1)
-    const nodesX = blocksX + 1;
-    const nodesY = blocksY + 1;
+  // 데이터 저장
+  const circles = {}; // key: A101 등
+  const slots = {};   // key: A201 등
 
-    // 캔버스 크기(원 중심이 모서리에 오도록: 블록 격자 + 패딩)
-    const width  = PAD*2 + blocksX*BLOCK_W;
-    const height = PAD*2 + blocksY*BLOCK_H;
+  function makeNode(id, cx, cy){
+    const n = document.createElement('div');
+    n.className = 'node';
+    n.dataset.id = id;
+    n.style.left = (cx - R) + 'px';
+    n.style.top  = (cy - R) + 'px';
+    n.innerHTML = `<div class="l1">${id}</div><div class="l2"></div><div class="l3"></div>`;
+    return n;
+  }
 
-    canvas.style.width = width + "px";
-    canvas.style.height = height + "px";
-    canvas.innerHTML = "";
+  function setNode(el, code, qty, loc){
+    const l1 = el.querySelector('.l1');
+    const l2 = el.querySelector('.l2');
+    const l3 = el.querySelector('.l3');
+    l1.textContent = code || '';
+    l2.textContent = qty || '';
+    l3.textContent = loc || '';
+  }
 
-    // 블록(네모)들 생성
-    for(let y=0; y<blocksY; y++){
-      for(let x=0; x<blocksX; x++){
-        const b = document.createElement('div');
-        b.className = 'block';
-        b.style.left = (PAD + x*BLOCK_W) + "px";
-        b.style.top  = (PAD + y*BLOCK_H) + "px";
-        b.style.width = BLOCK_W + "px";
-        b.style.height = BLOCK_H + "px";
-        canvas.appendChild(b);
+  function makeSlot(id, x, y){
+    const s = document.createElement('div');
+    s.className = 'slot';
+    s.dataset.id = id;
+    s.style.left = (x - 45) + 'px';
+    s.style.top  = (y - 28) + 'px';
+    s.innerHTML = `<div class="s1"></div><div class="s2"></div><div class="s3">${id}</div>`;
+    return s;
+  }
+
+  function setSlot(el, code, qty){
+    el.querySelector('.s1').textContent = code || '';
+    el.querySelector('.s2').textContent = qty || '';
+  }
+
+  function draw(){
+    canvas.innerHTML = '';
+
+    // 전체 사이즈 계산
+    const leftX = centerX(0) - R - 36;
+    const rightX = centerX(COLS-1) + R + 36;
+    const topY = centerY(0) - R - 24;
+    const bottomY = centerY(ROWS-1) + R + 24;
+
+    canvas.style.width = (rightX + 20) + 'px';
+    canvas.style.height = (bottomY + 20) + 'px';
+
+    // 바깥 프레임
+    const frame = document.createElement('div');
+    frame.className = 'frame';
+    frame.style.left = leftX + 'px';
+    frame.style.top = topY + 'px';
+    frame.style.width = (rightX - leftX) + 'px';
+    frame.style.height = (bottomY - topY) + 'px';
+    canvas.appendChild(frame);
+
+    // 가로 연결선(원-원)
+    for(let r=0; r<ROWS; r++){
+      for(let c=0; c<COLS-1; c++){
+        const x1 = centerX(c) + R;
+        const x2 = centerX(c+1) - R;
+        const y = centerY(r);
+        const h = document.createElement('div');
+        h.className='hline';
+        h.style.left = x1 + 'px';
+        h.style.top = (y - LINE/2) + 'px';
+        h.style.width = (x2 - x1) + 'px';
+        h.style.height = LINE + 'px';
+        canvas.appendChild(h);
       }
     }
 
-    // 노드(원)들 생성: "모서리에 원 중앙" => 원의 중심 = (PAD+x*BLOCK_W, PAD+y*BLOCK_H)
-    // 따라서 원의 left/top은 중심 - 반지름
-    const r = NODE_D/2;
-    let idx = 0;
-    for(let y=0; y<nodesY; y++){
-      for(let x=0; x<nodesX; x++){
-        const n = document.createElement('div');
-        n.className = 'node';
-        const id = nodeId(idx++);
-        n.dataset.id = id;
+    // 세로 연결선(위-중, 중-아래)
+    for(let c=0; c<COLS; c++){
+      for(let r=0; r<ROWS-1; r++){
+        const x = centerX(c);
+        const y1 = centerY(r) + R;
+        const y2 = centerY(r+1) - R;
+        const v = document.createElement('div');
+        v.className='vline';
+        v.style.left = (x - LINE/2) + 'px';
+        v.style.top = y1 + 'px';
+        v.style.width = LINE + 'px';
+        v.style.height = (y2 - y1) + 'px';
+        canvas.appendChild(v);
+      }
+    }
 
-        const cx = PAD + x*BLOCK_W;
-        const cy = PAD + y*BLOCK_H;
-        n.style.left = (cx - r) + "px";
-        n.style.top  = (cy - r) + "px";
-
-        const l1 = document.createElement('div'); l1.className='l1';
-        const l2 = document.createElement('div'); l2.className='l2';
-        const l3 = document.createElement('div'); l3.className='l3';
-        n.appendChild(l1); n.appendChild(l2); n.appendChild(l3);
-
-        // 초기 표시
-        const d = nodeData[id] || {l1:id, l2:"", l3:""};
-        setNodeText(n, d.l1, d.l2, d.l3, d.emptyFlag);
-
+    // 원 18개 배치: A101~A106 / A301~A306 / A501~A506
+    const rowsBase = [101, 301, 501];
+    for(let r=0; r<ROWS; r++){
+      for(let c=0; c<COLS; c++){
+        const loc = 'A' + String(rowsBase[r] + c);
+        const n = makeNode(loc, centerX(c), centerY(r));
         canvas.appendChild(n);
+        circles[loc] = n;
+        // 초기값(빈)
+        setNode(n, '', '', loc);
       }
     }
 
-    // 입력창에 현재 node_id 안내를 위해(옵션) 아무것도 없으면 헤더만 채워줌
-    if(!ta.value.trim()){
-      ta.value = "node_id\tline1\tline2\tline3\n";
-    }
+    // 중간 슬롯 14개: A201~A207 (위쪽 밴드), A401~A407 (아래쪽 밴드)
+    // 슬롯은 7개(좌측여유 + (원 사이 5개) + 우측여유)
+    const segCount = 7;
+    const bandY1 = (centerY(0) + centerY(1)) / 2;
+    const bandY2 = (centerY(1) + centerY(2)) / 2;
+    const bandBases = [201, 401];
+    const bandYs = [bandY1, bandY2];
 
-    // 현재 데이터 다시 반영
-    applyAllToDom();
-  }
+    // X 위치: 프레임 좌우 안쪽에서 7등분 느낌으로 배치
+    const slotLeft = centerX(0) - R - 6;
+    const slotRight = centerX(COLS-1) + R + 6;
+    const slotSpan = slotRight - slotLeft;
 
-  function setNodeText(nodeEl, l1, l2, l3, emptyFlag){
-    const [e1,e2,e3] = nodeEl.children;
-    e1.textContent = l1 ?? "";
-    e2.textContent = l2 ?? "";
-    e3.textContent = l3 ?? "";
-    nodeEl.dataset.empty = emptyFlag ? "1" : "0";
-  }
-
-  function applyAllToDom(){
-    document.querySelectorAll('.node').forEach(n=>{
-      const id = n.dataset.id;
-      const d = nodeData[id];
-      if(d){
-        setNodeText(n, d.l1, d.l2, d.l3, d.emptyFlag);
+    for(let b=0; b<2; b++){
+      for(let i=0; i<segCount; i++){
+        const id = 'A' + String(bandBases[b] + i); // A201..A207 / A401..A407
+        const x = slotLeft + (i + 0.5) * (slotSpan / segCount);
+        const y = bandYs[b];
+        const s = makeSlot(id, x, y);
+        canvas.appendChild(s);
+        slots[id] = s;
+        setSlot(s, '', '');
       }
-    });
+    }
   }
 
-  // ====== TSV 파싱 (엑셀 붙여넣기) ======
-  function parseTSV(text){
-    const lines = text.split(/\r?\n/).filter(l=>l.trim().length>0);
+  function normalizeNumber(s){
+    if(s == null) return '';
+    const t = String(s).trim();
+    if(!t) return '';
+    // 1,600.000 -> 1600.000
+    return t.replace(/,/g,'');
+  }
+
+  function applyFromExcel(text){
+    // 기대: 장치장 곡종 재고량 (탭/공백)
+    // 첫 줄이 헤더일 수 있음
+    const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
     if(lines.length === 0) return;
 
-    // 헤더 처리
-    const header = lines[0].split("\t").map(s=>s.trim().toLowerCase());
-    const hasHeader = header.includes("node_id") || header.includes("nodeid");
+    const first = lines[0].toLowerCase();
+    const start = (first.includes('장치장') && first.includes('곡종')) ? 1 : 0;
 
-    const start = hasHeader ? 1 : 0;
     for(let i=start; i<lines.length; i++){
-      const cols = lines[i].split("\t");
-      if(cols.length < 2) continue;
+      // 탭 우선, 없으면 다중 공백
+      const parts = lines[i].includes('\t')
+        ? lines[i].split('\t')
+        : lines[i].split(/\s+/);
 
-      const id = (cols[0]||"").trim();
-      if(!id) continue;
+      if(parts.length < 3) continue;
 
-      const l1 = (cols[1]||"").trim();
-      const l2 = (cols[2]||"").trim();
-      const l3 = (cols[3]||"").trim();
+      const loc = parts[0].trim();   // A101...
+      const code = parts[1].trim();  // WUR...
+      const qty = normalizeNumber(parts[2]);
 
-      // 빈값/0 표시용(원하는 규칙으로 바꿔도 됨)
-      const emptyFlag = (l2 === "0");
-
-      nodeData[id] = {l1, l2, l3, emptyFlag};
+      if(circles[loc]){
+        setNode(circles[loc], code, qty, loc);
+      } else if(slots[loc]){
+        // 슬롯은 loc만 표기(코드/수량만)
+        setSlot(slots[loc], code, qty);
+      }
     }
-    applyAllToDom();
   }
 
-  // 붙여넣거나 입력 변경 시 즉시 반영
-  ta.addEventListener('input', ()=> parseTSV(ta.value));
-
-  // ====== 버튼 ======
-  document.getElementById('btnRebuild').addEventListener('click', rebuild);
+  document.getElementById('btnApply').addEventListener('click', ()=>{
+    applyFromExcel(ta.value);
+  });
 
   document.getElementById('btnClear').addEventListener('click', ()=>{
-    nodeData = {};
-    ta.value = "node_id\tline1\tline2\tline3\n";
-    rebuild();
+    ta.value = '';
+    draw();
   });
 
-  document.getElementById('btnFillDemo').addEventListener('click', ()=>{
-    // 현재 생성된 노드 수에 맞춰 데모 채우기
-    const nodes = Array.from(document.querySelectorAll('.node')).map(n=>n.dataset.id);
-    let out = "node_id\tline1\tline2\tline3\n";
-    nodes.forEach((id, i)=>{
-      const code = ["WASW","WCRS","WUR","WNS","WUSH","WASWP"][i%6];
-      const qty = String(1500 + (i*17)%250);
-      const loc = "A" + String(101+i).padStart(3,"0");
-      out += `${id}\t${code}\t${(i===7? "0": qty)}\t${loc}\n`;
-    });
-    ta.value = out;
-    parseTSV(out);
-  });
-
-  // 최초 1회 생성
-  rebuild();
+  // 최초 렌더
+  draw();
 </script>
 </body>
 </html>
