@@ -132,7 +132,7 @@ A401	WCRS	170"></textarea>
       - 원(18개): 내부 모서리(양 끝 제외) 6×3 위치에 표시됩니다.<br/>
       - 상단 원: A101~A106 / 중단 원: A301~A306 / 하단 원: A501~A506<br/>
       - 주황 슬롯(14개): 위쪽 A201~A207, 아래쪽 A401~A407<br/>
-      - 재고량은 정수로 표시됩니다(소수점 제거).
+      - 재고량은 정수로 표시됩니다(소수점 버림).
     </div>
   </div>
 
@@ -226,7 +226,7 @@ A401	WCRS	170"></textarea>
     el.querySelector('.s2').textContent = qty || '';
   }
 
-  // ✅ 소수점 제거(정수 표시) + 콤마 제거
+  // ✅ 소수점 버림(정수 표시) + 콤마 제거
   function normalizeNum(s){
     if(s == null) return '';
     const t = String(s).trim();
@@ -253,8 +253,9 @@ A401	WCRS	170"></textarea>
       }
     }
 
+    // ✅ (변경) 바깥 큰 프레임은 생성하지 않음
+
     // 2) 원(18개) 생성: 내부 교차점 (x=1..6, y=0..2)
-    // 교차점 좌표: (pad + gx*bw, pad + gy*bh)
     let idx=0;
     for(let gy=0; gy<NODES_Y; gy++){
       for(let gx=1; gx<=NODES_X; gx++){
@@ -263,13 +264,12 @@ A401	WCRS	170"></textarea>
         const cy = pad() + gy*bh();
         const n = makeNode(id, cx, cy);
         nodeEls[id] = n;
-        // 초기 표시: ID만
         setNode(n, id, '', '');
       }
     }
 
-    // 3) 연결선: 원 중심 교차점 기준으로 그리기
-    const L = stroke(); // 선 두께
+    // 3) 연결선
+    const L = stroke();
     const r = nd()/2;
 
     // 가로선
@@ -291,4 +291,131 @@ A401	WCRS	170"></textarea>
       }
     }
 
-    // 4) 노드ID <-> 장치장 매
+    // 4) 노드ID <-> 장치장 매핑
+    Object.keys(nodeMap).forEach(k=>delete nodeMap[k]);
+    for(let i=0; i<6; i++){
+      nodeMap['A'+(101+i)] = nodeId(i);
+      nodeMap['A'+(301+i)] = nodeId(6+i);
+      nodeMap['A'+(501+i)] = nodeId(12+i);
+    }
+
+    // 5) 슬롯(14개) 배치
+    const bandYTop = (pad() + 0*bh() + pad() + 1*bh()) / 2;
+    const bandYBot = (pad() + 1*bh() + pad() + 2*bh()) / 2;
+
+    // 슬롯 X범위: 전체 폭을 7등분 (좌/우 끝 포함)
+    const xLeft = pad() + 0*bw();
+    const xRight = pad() + 7*bw();
+    const span = xRight - xLeft;
+
+    const slotCenters = [];
+    for(let i=0; i<SLOTS_PER_BAND; i++){
+      slotCenters.push(xLeft + (i+0.5)*(span/SLOTS_PER_BAND));
+    }
+
+    // 위쪽 A201~A207
+    for(let i=0; i<SLOTS_PER_BAND; i++){
+      const id = 'A'+(201+i);
+      const s = makeSlot(id, slotCenters[i], bandYTop);
+      slotEls[id] = s;
+      setSlot(s, '', '');
+    }
+    // 아래쪽 A401~A407
+    for(let i=0; i<SLOTS_PER_BAND; i++){
+      const id = 'A'+(401+i);
+      const s = makeSlot(id, slotCenters[i], bandYBot);
+      slotEls[id] = s;
+      setSlot(s, '', '');
+    }
+  }
+
+  function clearValues(){
+    Object.entries(nodeEls).forEach(([id, el])=>{
+      setNode(el, id, '', '');
+    });
+    Object.entries(slotEls).forEach(([id, el])=>{
+      setSlot(el, '', '');
+    });
+  }
+
+  function applyExcel(text){
+    const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+    if(lines.length === 0) return;
+
+    const first = lines[0].toLowerCase();
+    const start = (first.includes('장치장') && first.includes('곡종')) ? 1 : 0;
+
+    for(let i=start; i<lines.length; i++){
+      const parts = lines[i].includes('\t') ? lines[i].split('\t') : lines[i].split(/\s+/);
+      if(parts.length < 3) continue;
+
+      const loc = parts[0].trim();
+      const code = parts[1].trim();
+      const qty  = normalizeNum(parts[2]);
+
+      if(nodeMap[loc]){
+        const nid = nodeMap[loc];
+        const el = nodeEls[nid];
+        if(el) setNode(el, code, qty, loc);
+      }
+      if(slotEls[loc]){
+        setSlot(slotEls[loc], code, qty);
+      }
+    }
+  }
+
+  document.getElementById('btnApply').addEventListener('click', ()=>{
+    clearValues();
+    applyExcel(ta.value);
+  });
+
+  document.getElementById('btnClear').addEventListener('click', ()=>{
+    ta.value = '';
+    clearValues();
+  });
+
+  document.getElementById('btnDemo').addEventListener('click', ()=>{
+    const demo = [
+      "장치장\t곡종\t재고량",
+      "A101\tWUR\t1600.000",
+      "A102\tWCRS\t1700.557",
+      "A103\tWASW\t1360.392",
+      "A104\tWASWP\t1403.039",
+      "A105\tWUR\t1700.915",
+      "A106\tWNS\t1637.684",
+      "A201\tWUSL9.0\t146.960",
+      "A202\tWUSH\t420.000",
+      "A203\tWUR\t420.679",
+      "A204\tWUR\t420.233",
+      "A205\tWUSH\t420.000",
+      "A206\tWUSL9.0\t419.860",
+      "A207\tWUR\t158.126",
+      "A301\tWUSH\t864.386",
+      "A302\tWUSH\t1695.227",
+      "A303\tWUSH\t1671.185",
+      "A304\tWUSH\t1690.285",
+      "A305\tWNS\t1697.176",
+      "A306\tWUR\t1701.166",
+      "A401\tWCRS\t170.000",
+      "A402\tWUSH\t410.000",
+      "A403\tWUSH\t0.000",
+      "A404\tWNS\t419.287",
+      "A405\tWUSH\t0.000",
+      "A406\tWUSH\t0.000",
+      "A407\tWNS\t170.000",
+      "A501\tWUSH\t1557.437",
+      "A502\tWNS\t1703.834",
+      "A503\tWUSH\t1645.290",
+      "A504\tWCRS\t956.294",
+      "A505\tWASWP\t1696.740",
+      "A506\tWUR\t1700.906"
+    ].join("\n");
+    ta.value = demo;
+    clearValues();
+    applyExcel(demo);
+  });
+
+  draw();
+</script>
+</body>
+</html>
